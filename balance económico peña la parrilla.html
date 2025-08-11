@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peña La Parrilla - Gestión de Gastos e Ingresos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1, h2, h3 {
+            color: #d35400;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #e67e22;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background-color: #d35400;
+        }
+        .export-btn {
+            background-color: #27ae60;
+        }
+        .export-btn:hover {
+            background-color: #219955;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8e9db;
+            cursor: pointer;
+            position: relative;
+        }
+        th:hover {
+            background-color: #f0d8c0;
+        }
+        tr:hover {
+            background-color: #fdf6f0;
+        }
+        .sort-icon::after {
+            content: ' ↕';
+            font-size: 10px;
+            opacity: 0.5;
+        }
+        .sort-asc::after {
+            content: ' ↑';
+            opacity: 1;
+        }
+        .sort-desc::after {
+            content: ' ↓';
+            opacity: 1;
+        }
+        .balance {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .positive {
+            color: #27ae60;
+        }
+        .negative {
+            color: #c0392b;
+        }
+        .zero {
+            color: #7f8c8d;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 0 4px 4px 4px;
+            background-color: white;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .delete-btn {
+            background-color: #c0392b;
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        .delete-btn:hover {
+            background-color: #a93226;
+        }
+        .export-container {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Peña La Parrilla</h1>
+        <h2>Gestión de Gastos e Ingresos</h2>
+        
+        <!-- Gestión de Eventos -->
+        <div class="container">
+            <h3>Crear Nuevo Evento</h3>
+            <div class="form-group">
+                <label for="nombreEvento">Nombre del Evento:</label>
+                <input type="text" id="nombreEvento" placeholder="Ej: Fiesta de Navidad, Verbena de San Juan...">
+            </div>
+            <button id="crearEvento">Crear Evento</button>
+        </div>
+        
+        <!-- Pestañas para eventos -->
+        <div id="eventosTabs" class="tabs">
+            <!-- Las pestañas de eventos se generarán aquí dinámicamente -->
+            <div class="tab active" data-evento="general">General</div>
+        </div>
+        
+        <!-- Contenido de las pestañas -->
+        <div id="eventosContents">
+            <!-- Contenido de la pestaña General -->
+            <div class="tab-content active" id="content-general">
+                <h3>Registro General de Movimientos</h3>
+                
+                <!-- Botones de exportación -->
+                <div class="export-container">
+                    <button id="exportarExcelGeneral" class="export-btn">Exportar a Excel</button>
+                    <button id="exportarPDFGeneral" class="export-btn">Exportar a PDF</button>
+                </div>
+                
+                <!-- Formulario para añadir movimientos -->
+                <div class="container">
+                    <h4>Añadir Movimiento</h4>
+                    <div class="form-group">
+                        <label for="tipoMovimiento">Tipo:</label>
+                        <select id="tipoMovimiento">
+                            <option value="ingreso">Ingreso</option>
+                            <option value="gasto">Gasto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="nombrePersona">Nombre:</label>
+                        <input type="text" id="nombrePersona" placeholder="Nombre de la persona o entidad">
+                    </div>
+                    <div class="form-group">
+                        <label for="cantidad">Cantidad (€):</label>
+                        <input type="number" step="0.01" id="cantidad" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="concepto">Concepto:</label>
+                        <input type="text" id="concepto" placeholder="Descripción del movimiento">
+                    </div>
+                    <button id="agregarMovimiento">Añadir Movimiento</button>
+                </div>
+                
+                <!-- Tabla de movimientos generales -->
+                <div class="container">
+                    <h3>Movimientos Generales</h3>
+                    <table id="tablaGeneral">
+                        <thead>
+                            <tr>
+                                <th data-column="tipo" class="sort-icon">Tipo</th>
+                                <th data-column="nombre" class="sort-icon">Nombre</th>
+                                <th data-column="cantidad" class="sort-icon">Cantidad (€)</th>
+                                <th data-column="concepto" class="sort-icon">Concepto</th>
+                                <th data-column="fecha" class="sort-icon">Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaGeneral">
+                            <!-- Los movimientos generales se mostrarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Estructura de datos para almacenar los eventos y movimientos
+        let eventos = {
+            general: {
+                nombre: "General",
+                ingresos: [],
+                gastos: []
+            }
+        };
+        
+        // Índice para ordenamiento
+        let sortIndices = {
+            general: { column: null, direction: 1 }
+        };
+        
+        // Referencias a elementos del DOM
+        const nombreEventoInput = document.getElementById('nombreEvento');
+        const crearEventoBtn = document.getElementById('crearEvento');
+        const eventosTabs = document.getElementById('eventosTabs');
+        const eventosContents = document.getElementById('eventosContents');
+        
+        const tipoMovimiento = document.getElementById('tipoMovimiento');
+        const nombrePersona = document.getElementById('nombrePersona');
+        const cantidad = document.getElementById('cantidad');
+        const concepto = document.getElementById('concepto');
+        const agregarMovimientoBtn = document.getElementById('agregarMovimiento');
+        const listaGeneral = document.getElementById('listaGeneral');
+        
+        // Botones de exportación
+        const exportarExcelGeneral = document.getElementById('exportarExcelGeneral');
+        const exportarPDFGeneral = document.getElementById('exportarPDFGeneral');
+        
+        // Evento para crear un nuevo evento
+        crearEventoBtn.addEventListener('click', () => {
+            const nombre = nombreEventoInput.value.trim();
+            if (nombre === '') {
+                alert('Por favor, introduce un nombre para el evento');
+                return;
+            }
+            
+            // Verificar si el evento ya existe
+            const idEvento = nombre.toLowerCase().replace(/[^a-zA-Z0-9]/g, '');
+            if (eventos[idEvento]) {
+                alert('Ya existe un evento con ese nombre');
+                return;
+            }
+            
+            // Crear nuevo evento
+            eventos[idEvento] = {
+                nombre: nombre,
+                ingresos: [],
+                gastos: []
+            };
+            
+            // Crear nueva pestaña
+            const tab = document.createElement('div');
+            tab.className = 'tab';
+            tab.textContent = nombre;
+            tab.setAttribute('data-evento', idEvento);
+            tab.addEventListener('click', cambiarTab);
+            eventosTabs.appendChild(tab);
+            
+            // Crear nuevo contenido de pestaña
+            const content = document.createElement('div');
+            content.className = 'tab-content';
+            content.id = `content-${idEvento}`;
+            content.innerHTML = crearContenidoEvento(nombre, idEvento);
+            eventosContents.appendChild(content);
+            
+            // Reiniciar el formulario
+            nombreEventoInput.value = '';
+            
+            // Añadir manejadores de eventos para el nuevo contenido
+            configurarEventoContent(idEvento);
+        });
+        
+        // Función para crear el contenido de un evento
+        function crearContenidoEvento(nombre, idEvento) {
+            return `
+                <h3>${nombre}</h3>
+                
+                <!-- Botones de exportación -->
+                <div class="export-container">
+                    <button id="exportarExcel-${idEvento}" class="export-btn">Exportar Ingresos a Excel</button>
+                    <button id="exportarPDF-${idEvento}" class="export-btn">Exportar a PDF</button>
+                </div>
+                
+                <!-- Formulario para añadir movimientos al evento -->
+                <div class="container">
+                    <h4>Añadir Movimiento al Evento</h4>
+                    <div class="form-group">
+                        <label for="tipoMovimiento-${idEvento}">Tipo:</label>
+                        <select id="tipoMovimiento-${idEvento}">
+                            <option value="ingreso">Ingreso</option>
+                            <option value="gasto">Gasto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="nombrePersona-${idEvento}">Nombre:</label>
+                        <input type="text" id="nombrePersona-${idEvento}" placeholder="Nombre de la persona o entidad">
+                    </div>
+                    <div class="form-group">
+                        <label for="cantidad-${idEvento}">Cantidad (€):</label>
+                        <input type="number" step="0.01" id="cantidad-${idEvento}" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="concepto-${idEvento}">Concepto:</label>
+                        <input type="text" id="concepto-${idEvento}" placeholder="Descripción del movimiento">
+                    </div>
+                    <button id="agregarMovimiento-${idEvento}">Añadir al Evento</button>
+                </div>
+                
+                <!-- Tabla de ingresos del evento -->
+                <div class="container">
+                    <h3>Ingresos</h3>
+                    <table id="tablaIngresos-${idEvento}">
+                        <thead>
+                            <tr>
+                                <th data-column="nombre" class="sort-icon">Nombre</th>
+                                <th data-column="cantidad" class="sort-icon">Cantidad (€)</th>
+                                <th data-column="concepto" class="sort-icon">Concepto</th>
+                                <th data-column="fecha" class="sort-icon">Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaIngresos-${idEvento}">
+                            <!-- Los ingresos se mostrarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Tabla de gastos del evento -->
+                <div class="container">
+                    <h3>Gastos</h3>
+                    <table id="tablaGastos-${idEvento}">
+                        <thead>
+                            <tr>
+                                <th data-column="nombre" class="sort-icon">Nombre</th>
+                                <th data-column="cantidad" class="sort-icon">Cantidad (€)</th>
+                                <th data-column="concepto" class="sort-icon">Concepto</th>
+                                <th data-column="fecha" class="sort-icon">Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaGastos-${idEvento}">
+                            <!-- Los gastos se mostrarán aquí -->
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Balance del evento -->
+                <div class="container">
+                    <h3>Balance Presupuestario</h3>
+                    <div id="balance-${idEvento}" class="balance zero">Balance: 0.00 €</div>
+                </div>
+            `;
+        }
+        
+        // Función para configurar los manejadores de eventos de un contenido de evento
+        function configurarEventoContent(idEvento) {
+            const agregarBtn = document.getElementById(`agregarMovimiento-${idEvento}`);
+            agregarBtn.addEventListener('click', () => {
+                agregarMovimiento(idEvento);
+            });
+            
+            // Botones de exportación
+            const exportarExcelBtn = document.getElementById(`exportarExcel-${idEvento}`);
+            const exportarPDFBtn = document.getElementById(`exportarPDF-${idEvento}`);
+            
+            exportarExcelBtn.addEventListener('click', () => {
+                exportarEventoAExcel(idEvento);
+            });
+            
+            exportarPDFBtn.addEventListener('click', () => {
+                exportarEventoAPDF(idEvento);
+            });
+            
+            // Configurar ordenamiento para tablas de ingresos
+            const tablaIngresos = document.getElementById(`tablaIngresos-${idEvento}`);
+            const thIngresos = tablaIngresos.querySelectorAll('th[data-column]');
+            thIngresos.forEach(th => {
+                th.addEventListener('click', () => {
+                    ordenarTabla(idEvento, 'ingresos', th.dataset.column);
+                });
+            });
+            
+            // Configurar ordenamiento para tablas de gastos
+            const tablaGastos = document.getElementById(`tablaGastos-${idEvento}`);
+            const thGastos = tablaGastos.querySelectorAll('th[data-column]');
+            thGastos.forEach(th => {
+                th.addEventListener('click', () => {
+                    ordenarTabla(idEvento, 'gastos', th.dataset.column);
+                });
+            });
+            
+            // Inicializar el índice de ordenamiento
+            sortIndices[idEvento] = {
+                ingresos: { column: null, direction: 1 },
+                gastos: { column: null, direction: 1 }
+            };
+            
+            // Actualizar el balance inicial
+            actualizarBalance(idEvento);
+        }
+        
+        // Función para cambiar entre pestañas
+        function cambiarTab(e) {
+            const tab = e.target;
+            const idEvento = tab.getAttribute('data-evento');
+            
+            // Actualizar pestañas
+            document.querySelectorAll('.tab').forEach(t => {
+                t.classList.remove('active');
+            });
+            tab.classList.add('active');
+            
+            // Actualizar contenidos
+            document.querySelectorAll('.tab-content').forEach(c => {
+                c.classList.remove('active');
+            });
+            document.getElementById(`content-${idEvento}`).classList.add('active');
+        }
+        
+        // Eventos para exportar
+        exportarExcelGeneral.addEventListener('click', () => {
+            exportarGeneralAExcel();
+        });
+        
+        exportarPDFGeneral.addEventListener('click', () => {
+            exportarGeneralAPDF();
+        });
+        
+        // Función para exportar los datos generales a Excel
+        function exportarGeneralAExcel() {
+            // Preparar los datos
+            const data = [];
+            
+            // Añadir encabezado
+            data.push(['TIPO', 'NOMBRE', 'CANTIDAD (€)', 'CONCEPTO', 'FECHA']);
+            
+            // Añadir ingresos
+            eventos.general.ingresos.forEach(ingreso => {
+                data.push(['INGRESO', ingreso.nombre, ingreso.cantidad, ingreso.concepto, ingreso.fecha]);
+            });
+            
+            // Añadir gastos
+            eventos.general.gastos.forEach(gasto => {
+                data.push(['GASTO', gasto.nombre, gasto.cantidad, gasto.concepto, gasto.fecha]);
+            });
+            
+            // Calcular totales
+            const totalIngresos = eventos.general.ingresos.reduce((sum, item) => sum + item.cantidad, 0);
+            const totalGastos = eventos.general.gastos.reduce((sum, item) => sum + item.cantidad, 0);
+            const balance = totalIngresos - totalGastos;
+            
+            data.push(['', '', '', '', '']);
+            data.push(['TOTALES', '', '', '', '']);
+            data.push(['Total Ingresos:', '', totalIngresos.toFixed(2) + ' €', '', '']);
+            data.push(['Total Gastos:', '', totalGastos.toFixed(2) + ' €', '', '']);
+            data.push(['Balance:', '', balance.toFixed(2) + ' €', '', '']);
+            
+            // Crear el libro de trabajo
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Movimientos Generales");
+            
+            // Ajustar el ancho de las columnas
+            const wscols = [
+                {wch:15},
+                {wch:25},
+                {wch:15},
+                {wch:30},
+                {wch:12}
+            ];
+            ws['!cols'] = wscols;
+            
+            // Guardar el archivo
+            XLSX.writeFile(wb, `Movimientos_Generales_Peña_La_Parrilla_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+        
+        // Función para exportar un evento a Excel
+        function exportarEventoAExcel(idEvento) {
+            // Preparar los datos
+            const dataIngresos = [];
+            const dataGastos = [];
+            
+            // Añadir encabezado para ingresos
+            dataIngresos.push(['NOMBRE', 'CANTIDAD (€)', 'CONCEPTO', 'FECHA']);
+            
+            // Añadir ingresos
+            eventos[idEvento].ingresos.forEach(ingreso => {
+                dataIngresos.push([ingreso.nombre, ingreso.cantidad, ingreso.concepto, ingreso.fecha]);
+            });
+            
+            // Añadir encabezado para gastos
+            dataGastos.push(['NOMBRE', 'CANTIDAD (€)', 'CONCEPTO', 'FECHA']);
+            
+            // Añadir gastos
+            eventos[idEvento].gastos.forEach(gasto => {
+                dataGastos.push([gasto.nombre, gasto.cantidad, gasto.concepto, gasto.fecha]);
+            });
+            
+            // Calcular totales
+            const totalIngresos = eventos[idEvento].ingresos.reduce((sum, item) => sum + item.cantidad, 0);
+            const totalGastos = eventos[idEvento].gastos.reduce((sum, item) => sum + item.cantidad, 0);
+            const balance = totalIngresos - totalGastos;
+            
+            // Crear el libro de trabajo
+            const wb = XLSX.utils.book_new();
+            
+            // Hoja de ingresos
+            const wsIngresos = XLSX.utils.aoa_to_sheet(dataIngresos);
+            XLSX.utils.book_append_sheet(wb, wsIngresos, "Ingresos");
+            
+            // Hoja de gastos
+            const wsGastos = XLSX.utils.aoa_to_sheet(dataGastos);
+            XLSX.utils.book_append_sheet(wb, wsGastos, "Gastos");
+            
+            // Ajustar el ancho de las columnas
+            const wscols = [
+                {wch:25},
+                {wch:15},
+                {wch:30},
+                {wch:12}
+            ];
+            wsIngresos['!cols'] = wscols;
+            wsGastos['!cols'] = wscols;
+            
+            // Añadir hoja de resumen
+            const dataResumen = [
+                ['RESUMEN PRESUPUESTARIO', '', ''],
+                ['Evento:', eventos[idEvento].nombre, ''],
+                ['', '', ''],
+                ['Total Ingresos:', totalIngresos.toFixed(2) + ' €', ''],
+                ['Total Gastos:', totalGastos.toFixed(2) + ' €', ''],
+                ['Balance:', balance.toFixed(2) + ' €', '']
+            ];
+            
+            const wsResumen = XLSX.utils.aoa_to_sheet(dataResumen);
+            XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
+            
+            // Guardar el archivo
+            XLSX.writeFile(wb, `Evento_${eventos[idEvento].nombre.replace(/[^a-zA-Z0-9]/g, '_')}_Peña_La_Parrilla_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+        
+        // Función para exportar los datos generales a PDF
+        function exportarGeneralAPDF() {
+            // Crear instancia de jsPDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Título
+            doc.setFontSize(18);
+            doc.text("Peña La Parrilla", 14, 20);
+            doc.setFontSize(16);
+            doc.text("Movimientos Generales", 14, 30);
+            doc.setFontSize(12);
+            doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 40);
+            
+            // Datos de ingresos
+            const ingresosData = eventos.general.ingresos.map(ingreso => [
+                ingreso.nombre,
+                ingreso.cantidad.toFixed(2) + ' €',
+                ingreso.concepto,
+                ingreso.fecha
+            ]);
+            
+            // Datos de gastos
+            const gastosData = eventos.general.gastos.map(gasto => [
+                gasto.nombre,
+                gasto.cantidad.toFixed(2) + ' €',
+                gasto.concepto,
+                gasto.fecha
+            ]);
+            
+            // Calcular totales
+            const totalIngresos = eventos.general.ingresos.reduce((sum, item) => sum + item.cantidad, 0);
+            const totalGastos = eventos.general.gastos.reduce((sum, item) => sum + item.cantidad, 0);
+            const balance = totalIngresos - totalGastos;
+            
+            // Tabla de ingresos
+            if (ingresosData.length > 0) {
+                doc.setFontSize(14);
+                doc.text("Ingresos", 14, 55);
+                doc.autoTable({
+                    head: [['Nombre', 'Cantidad (€)', 'Concepto', 'Fecha']],
+                    body: ingresosData,
+                    startY: 60,
+                    theme: 'striped',
+                    headStyles: { fillColor: [230, 126, 34] }
+                });
+            }
+            
+            // Tabla de gastos
+            const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : 60;
+            if (gastosData.length > 0) {
+                doc.setFontSize(14);
+                doc.text("Gastos", 14, finalY);
+                doc.autoTable({
+                    head: [['Nombre', 'Cantidad (€)', 'Concepto', 'Fecha']],
+                    body: gastosData,
+                    startY: finalY + 5,
+                    theme: 'striped',
+                    headStyles: { fillColor: [230, 126, 34] }
+                });
+            }
+            
+            // Resumen
+            const finalYResumen = doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : finalY + 20;
+            doc.setFontSize(14);
+            doc.text("Resumen", 14, finalYResumen);
+            doc.autoTable({
+                body: [
+                    ['Total Ingresos:', totalIngresos.toFixed(2) + ' €'],
+                    ['Total Gastos:', totalGastos.toFixed(2) + ' €'],
+                    ['Balance:', balance.toFixed(2) + ' €']
+                ],
+                startY: finalYResumen + 5,
+                theme: 'plain',
+                columnStyles: {
+                    0: { fontStyle: 'bold' }
+                }
+            });
+            
+            // Guardar el PDF
+            doc.save(`Movimientos_Generales_Peña_La_Parrilla_${new Date().toISOString().split('T')[0]}.pdf`);
+        }
+        
+        // Función para exportar un evento a PDF
+        function exportarEventoAPDF(idEvento) {
+            // Crear instancia de jsPDF
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Título
+            doc.setFontSize(18);
+            doc.text("Peña La Parrilla", 14, 20);
+            doc.setFontSize(16);
+            doc.text(`Evento: ${eventos[idEvento].nombre}`, 14, 30);
+            doc.setFontSize(12);
+            doc.text(`Fecha: ${new Date().toLocaleDateString('es-ES')}`, 14, 40);
+            
+            // Datos de ingresos
+            const ingresosData = eventos[idEvento].ingresos.map(ingreso => [
+                ingreso.nombre,
+                ingreso.cantidad.toFixed(2) + ' €',
+                ingreso.concepto,
+                ingreso.fecha
+            ]);
+            
+            // Datos de gastos
+            const gastosData = eventos[idEvento].gastos.map(gasto => [
+                gasto.nombre,
+                gasto.cantidad.toFixed(2) + ' €',
+                gasto.concepto,
+                gasto.fecha
+            ]);
+            
+            // Calcular totales
+            const totalIngresos = eventos[idEvento].ingresos.reduce((sum, item) => sum + item.cantidad, 0);
+            const totalGastos = eventos[idEvento].gastos.reduce((sum, item) => sum + item.cantidad, 0);
+            const balance = totalIngresos - totalGastos;
+            
+            // Tabla de ingresos
+            if (ingresosData.length > 0) {
+                doc.setFontSize(14);
+                doc.text("Ingresos", 14, 55);
+                doc.autoTable({
+                    head: [['Nombre', 'Cantidad (€)', 'Concepto', 'Fecha']],
+                    body: ingresosData,
+                    startY: 60,
+                    theme: 'striped',
+                    headStyles: { fillColor: [230, 126, 34] }
+                });
+            }
+            
+            // Tabla de gastos
+            const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : 60;
+            if (gastosData.length > 0) {
+                doc.setFontSize(14);
+                doc.text("Gastos", 14, finalY);
+                doc.autoTable({
+                    head: [['Nombre', 'Cantidad (€)', 'Concepto', 'Fecha']],
+                    body: gastosData,
+                    startY: finalY + 5,
+                    theme: 'striped',
+                    headStyles: { fillColor: [230, 126, 34] }
+                });
+            }
+            
+            // Resumen
+            const finalYResumen = doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : finalY + 20;
+            doc.setFontSize(14);
+            doc.text("Resumen Presupuestario", 14, finalYResumen);
+            doc.autoTable({
+                body: [
+                    ['Total Ingresos:', totalIngresos.toFixed(2) + ' €'],
+                    ['Total Gastos:', totalGastos.toFixed(2) + ' €'],
+                    ['Balance:', balance.toFixed(2) + ' €']
+                ],
+                startY: finalYResumen + 5,
+                theme: 'plain',
+                columnStyles: {
+                    0: { fontStyle: 'bold' }
+                }
+            });
+            
+            // Guardar el PDF
+            doc.save(`Evento_${eventos[idEvento].nombre.replace(/[^a-zA-Z0-9]/g, '_')}_Peña_La_Parrilla_${new Date().toISOString().split('T')[0]}.pdf`);
+        }
+        
+        // Función para agregar un movimiento
+        function agregarMovimiento(idEvento) {
+            // Obtener los valores del formulario
+            let tipo, nombre, cant, conc;
+            
+            if (idEvento === 'general') {
+                tipo = tipoMovimiento.value;
+                nombre = nombrePersona.value.trim();
+                cant = parseFloat(cantidad.value);
+                conc = concepto.value.trim();
+            } else {
+                tipo = document.getElementById(`tipoMovimiento-${idEvento}`).value;
+                nombre = document.getElementById(`nombrePersona-${idEvento}`).value.trim();
+                cant = parseFloat(document.getElementById(`cantidad-${idEvento}`).value);
+                conc = document.getElementById(`concepto-${idEvento}`).value.trim();
+            }
+            
+            // Validar los datos
+            if (nombre === '' || isNaN(cant) || conc === '') {
+                alert('Por favor, completa todos los campos correctamente');
+                return;
+            }
+            
+            // Crear el objeto movimiento
+            const movimiento = {
+                nombre: nombre,
+                cantidad: cant,
+                concepto: conc,
+                fecha: new Date().toLocaleDateString('es-ES')
+            };
+            
+            // Añadir al evento correspondiente
+            if (tipo === 'ingreso') {
+                eventos[idEvento].ingresos.push(movimiento);
+            } else {
+                eventos[idEvento].gastos.push(movimiento);
+            }
+            
+            // Actualizar las tablas
+            if (idEvento === 'general') {
+                actualizarTablaGeneral();
+            } else {
+                actualizarTablaEvento(idEvento);
+            }
+            
+            // Actualizar el balance si no es el registro general
+            if (idEvento !== 'general') {
+                actualizarBalance(idEvento);
+            }
+            
+            // Limpiar el formulario
+            if (idEvento === 'general') {
+                nombrePersona.value = '';
+                cantidad.value = '';
+                concepto.value = '';
+            } else {
+                document.getElementById(`nombrePersona-${idEvento}`).value = '';
+                document.getElementById(`cantidad-${idEvento}`).value = '';
+                document.getElementById(`concepto-${idEvento}`).value = '';
+            }
+        }
+        
+        // Función para actualizar la tabla general
+        function actualizarTablaGeneral() {
+            listaGeneral.innerHTML = '';
+            
+            // Mostrar primero los ingresos
+            eventos.general.ingresos.forEach((ingreso, index) => {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td>Ingreso</td>
+                    <td>${ingreso.nombre}</td>
+                    <td>${ingreso.cantidad.toFixed(2)}</td>
+                    <td>${ingreso.concepto}</td>
+                    <td>${ingreso.fecha}</td>
+                `;
+                listaGeneral.appendChild(fila);
+            });
+            
+            // Luego mostrar los gastos
+            eventos.general.gastos.forEach((gasto, index) => {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td>Gasto</td>
+                    <td>${gasto.nombre}</td>
+                    <td>${gasto.cantidad.toFixed(2)}</td>
+                    <td>${gasto.concepto}</td>
+                    <td>${gasto.fecha}</td>
+                `;
+                listaGeneral.appendChild(fila);
+            });
+        }
+        
+        // Función para actualizar la tabla de un evento
+        function actualizarTablaEvento(idEvento) {
+            const listaIngresos = document.getElementById(`listaIngresos-${idEvento}`);
+            const listaGastos = document.getElementById(`listaGastos-${idEvento}`);
+            
+            // Actualizar tabla de ingresos
+            listaIngresos.innerHTML = '';
+            eventos[idEvento].ingresos.forEach((ingreso, index) => {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td>${ingreso.nombre}</td>
+                    <td>${ingreso.cantidad.toFixed(2)}</td>
+                    <td>${ingreso.concepto}</td>
+                    <td>${ingreso.fecha}</td>
+                `;
+                listaIngresos.appendChild(fila);
+            });
+            
+            // Actualizar tabla de gastos
+            listaGastos.innerHTML = '';
+            eventos[idEvento].gastos.forEach((gasto, index) => {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td>${gasto.nombre}</td>
+                    <td>${gasto.cantidad.toFixed(2)}</td>
+                    <td>${gasto.concepto}</td>
+                    <td>${gasto.fecha}</td>
+                `;
+                listaGastos.appendChild(fila);
+            });
+        }
+        
+        // Función para actualizar el balance de un evento
+        function actualizarBalance(idEvento) {
+            const balanceElement = document.getElementById(`balance-${idEvento}`);
+            
+            // Calcular totales
+            const totalIngresos = eventos[idEvento].ingresos.reduce((sum, ingreso) => sum + ingreso.cantidad, 0);
+            const totalGastos = eventos[idEvento].gastos.reduce((sum, gasto) => sum + gasto.cantidad, 0);
+            const balance = totalIngresos - totalGastos;
+            
+            // Actualizar el texto del balance
+            balanceElement.textContent = `Ingresos: ${totalIngresos.toFixed(2)} € | Gastos: ${totalGastos.toFixed(2)} € | Balance: ${balance.toFixed(2)} €`;
+            
+            // Actualizar la clase según el balance
+            balanceElement.className = 'balance';
+            if (balance > 0) {
+                balanceElement.classList.add('positive');
+            } else if (balance < 0) {
+                balanceElement.classList.add('negative');
+            } else {
+                balanceElement.classList.add('zero');
+            }
+        }
+        
+        // Función para ordenar una tabla
+        function ordenarTabla(idEvento, tipo, columna) {
+            // Obtener el estado actual de ordenamiento
+            if (!sortIndices[idEvento]) {
+                sortIndices[idEvento] = {
+                    ingresos: { column: null, direction: 1 },
+                    gastos: { column: null, direction: 1 }
+                };
+            }
+            
+            const indices = sortIndices[idEvento][tipo];
+            
+            // Determinar la dirección de ordenamiento
+            if (indices.column === columna) {
+                indices.direction *= -1;
+            } else {
+                indices.column = columna;
+                indices.direction = 1;
+            }
+            
+            // Obtener la tabla correspondiente
+            const array = tipo === 'ingresos' ? eventos[idEvento].ingresos : eventos[idEvento].gastos;
+            
+            // Ordenar el array
+            array.sort((a, b) => {
+                let aVal = a[columna];
+                let bVal = b[columna];
+                
+                // Para cantidades, convertir a número
+                if (columna === 'cantidad') {
+                    aVal = parseFloat(aVal);
+                    bVal = parseFloat(bVal);
+                }
+                
+                if (aVal < bVal) return -1 * indices.direction;
+                if (aVal > bVal) return 1 * indices.direction;
+                return 0;
+            });
+            
+            // Actualizar las clases de los encabezados
+            const tabla = document.getElementById(`tabla${tipo.charAt(0).toUpperCase() + tipo.slice(1)}-${idEvento}`);
+            const ths = tabla.querySelectorAll('th');
+            ths.forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+                if (th.dataset.column === columna) {
+                    if (indices.direction === 1) {
+                        th.classList.add('sort-asc');
+                    } else {
+                        th.classList.add('sort-desc');
+                    }
+                }
+            });
+            
+            // Actualizar la tabla
+            actualizarTablaEvento(idEvento);
+        }
+        
+        // Configurar el evento general inicial
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', cambiarTab);
+        });
+        
+        // Configurar el ordenamiento para la tabla general
+        const thsGeneral = document.querySelectorAll('#tablaGeneral th[data-column]');
+        thsGeneral.forEach(th => {
+            th.addEventListener('click', () => {
+                const columna = th.dataset.column;
+                const indices = sortIndices['general'];
+                
+                // Determinar la dirección de ordenamiento
+                if (indices.column === columna) {
+                    indices.direction *= -1;
+                } else {
+                    indices.column = columna;
+                    indices.direction = 1;
+                }
+                
+                // Ordenar los movimientos
+                if (columna === 'tipo') {
+                    // Para el tipo, ordenamos primero por tipo y luego por nombre
+                    eventos.general.ingresos.sort((a, b) => {
+                        if (a.nombre < b.nombre) return -1 * indices.direction;
+                        if (a.nombre > b.nombre) return 1 * indices.direction;
+                        return 0;
+                    });
+                    eventos.general.gastos.sort((a, b) => {
+                        if (a.nombre < b.nombre) return -1 * indices.direction;
+                        if (a.nombre > b.nombre) return 1 * indices.direction;
+                        return 0;
+                    });
+                } else if (columna === 'nombre') {
+                    eventos.general.ingresos.sort((a, b) => {
+                        if (a.nombre < b.nombre) return -1 * indices.direction;
+                        if (a.nombre > b.nombre) return 1 * indices.direction;
+                        return 0;
+                    });
+                    eventos.general.gastos.sort((a, b) => {
+                        if (a.nombre < b.nombre) return -1 * indices.direction;
+                        if (a.nombre > b.nombre) return 1 * indices.direction;
+                        return 0;
+                    });
+                } else if (columna === 'cantidad') {
+                    eventos.general.ingresos.sort((a, b) => {
+                        const diff = a.cantidad - b.cantidad;
+                        return diff * indices.direction;
+                    });
+                    eventos.general.gastos.sort((a, b) => {
+                        const diff = a.cantidad - b.cantidad;
+                        return diff * indices.direction;
+                    });
+                } else if (columna === 'concepto') {
+                    eventos.general.ingresos.sort((a, b) => {
+                        if (a.concepto < b.concepto) return -1 * indices.direction;
+                        if (a.concepto > b.concepto) return 1 * indices.direction;
+                        return 0;
+                    });
+                    eventos.general.gastos.sort((a, b) => {
+                        if (a.concepto < b.concepto) return -1 * indices.direction;
+                        if (a.concepto > b.concepto) return 1 * indices.direction;
+                        return 0;
+                    });
+                } else if (columna === 'fecha') {
+                    // Para fecha, necesitamos comparar como cadenas en formato dd/mm/yyyy
+                    eventos.general.ingresos.sort((a, b) => {
+                        const [dayA, monthA, yearA] = a.fecha.split('/');
+                        const [dayB, monthB, yearB] = b.fecha.split('/');
+                        const dateA = new Date(yearA, monthA - 1, dayA);
+                        const dateB = new Date(yearB, monthB - 1, dayB);
+                        
+                        const diff = dateA - dateB;
+                        return diff * indices.direction;
+                    });
+                    eventos.general.gastos.sort((a, b) => {
+                        const [dayA, monthA, yearA] = a.fecha.split('/');
+                        const [dayB, monthB, yearB] = b.fecha.split('/');
+                        const dateA = new Date(yearA, monthA - 1, dayA);
+                        const dateB = new Date(yearB, monthB - 1, dayB);
+                        
+                        const diff = dateA - dateB;
+                        return diff * indices.direction;
+                    });
+                }
+                
+                // Actualizar clases de los encabezados
+                thsGeneral.forEach(th => {
+                    th.classList.remove('sort-asc', 'sort-desc');
+                });
+                if (indices.direction === 1) {
+                    th.classList.add('sort-asc');
+                } else {
+                    th.classList.add('sort-desc');
+                }
+                
+                // Actualizar la tabla
+                actualizarTablaGeneral();
+            });
+        });
+        
+        // Inicializar con algunos datos de ejemplo
+        function inicializarDatosEjemplo() {
+            // Añadir algunos ingresos de ejemplo
+            eventos.general.ingresos.push({
+                nombre: "Juan Pérez",
+                cantidad: 50.00,
+                concepto: "Cuota mensual",
+                fecha: "05/01/2023"
+            });
+            
+            eventos.general.ingresos.push({
+                nombre: "María García",
+                cantidad: 30.00,
+                concepto: "Donación",
+                fecha: "12/01/2023"
+            });
+            
+            // Añadir algunos gastos de ejemplo
+            eventos.general.gastos.push({
+                nombre: "Supermercado",
+                cantidad: 85.50,
+                concepto: "Compra de alimentos",
+                fecha: "10/01/2023"
+            });
+            
+            eventos.general.gastos.push({
+                nombre: "Imprenta",
+                cantidad: 45.00,
+                concepto: "Impresión de carteles",
+                fecha: "15/01/2023"
+            });
+            
+            // Actualizar la tabla
+            actualizarTablaGeneral();
+        }
+        
+        // Llamar a la función de inicialización
+        inicializarDatosEjemplo();
+    </script>
+</body>
+</html>
