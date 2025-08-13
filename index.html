@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peña La Parrilla - Gestión de Gastos e Ingresos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1, h2, h3 {
+            color: #d35400;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #e67e22;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 5px;
+        }
+        button:hover {
+            background-color: #d35400;
+        }
+        .export-btn {
+            background-color: #27ae60;
+        }
+        .export-btn:hover {
+            background-color: #219955;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8e9db;
+        }
+        .balance {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+        }
+        .positive { color: #27ae60; }
+        .negative { color: #c0392b; }
+        .zero { color: #7f8c8d; }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: white;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 0 4px 4px 4px;
+            background-color: white;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .export-container {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+        }
+        .loading {
+            color: #7f8c8d;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Peña La Parrilla</h1>
+        <h2>Gestión de Gastos e Ingresos</h2>
+        
+        <div class="container">
+            <p><strong>Estado:</strong> <span id="status" class="loading">Cargando datos...</span></p>
+        </div>
+
+        <div class="container">
+            <h3>Crear Nuevo Evento</h3>
+            <div class="form-group">
+                <label for="nombreEvento">Nombre del Evento:</label>
+                <input type="text" id="nombreEvento" placeholder="Ej: Fiesta de Navidad...">
+            </div>
+            <button id="crearEvento">Crear Evento</button>
+        </div>
+        
+        <div id="eventosTabs" class="tabs">
+            <div class="tab active" data-evento="general">General</div>
+        </div>
+        
+        <div id="eventosContents">
+            <div class="tab-content active" id="content-general">
+                <h3>Registro General de Movimientos</h3>
+                
+                <div class="export-container">
+                    <button id="exportarExcelGeneral" class="export-btn">Exportar a Excel</button>
+                    <button id="exportarPDFGeneral" class="export-btn">Exportar a PDF</button>
+                </div>
+                
+                <div class="container">
+                    <h4>Añadir Movimiento</h4>
+                    <div class="form-group">
+                        <label for="tipoMovimiento">Tipo:</label>
+                        <select id="tipoMovimiento">
+                            <option value="ingreso">Ingreso</option>
+                            <option value="gasto">Gasto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="nombrePersona">Nombre:</label>
+                        <input type="text" id="nombrePersona" placeholder="Nombre de la persona">
+                    </div>
+                    <div class="form-group">
+                        <label for="cantidad">Cantidad (€):</label>
+                        <input type="number" step="0.01" id="cantidad" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="concepto">Concepto:</label>
+                        <input type="text" id="concepto" placeholder="Descripción del movimiento">
+                    </div>
+                    <button id="agregarMovimiento">Añadir Movimiento</button>
+                </div>
+                
+                <div class="container">
+                    <h3>Movimientos Generales</h3>
+                    <table id="tablaGeneral">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Nombre</th>
+                                <th>Cantidad (€)</th>
+                                <th>Concepto</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaGeneral">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === 🔔 PON AQUÍ TU NUEVA URL DE APPS SCRIPT (después de desplegar) ===
+        const API_URL = "https://script.google.com/macros/s/AKfycby-6lxeIsTcbcLn7Y1RlAYTJHfNt76l_rKyP0Agm912QMatlHSZo2HmiS6d4-HCoRic/exec";
+        // =========================================================================
+
+        let eventos = { general: { nombre: "General", ingresos: [], gastos: [] } };
+        const status = document.getElementById('status');
+        const listaGeneral = document.getElementById('listaGeneral');
+
+        async function cargarDatos() {
+            try {
+                const cargarHoja = async (sheet) => {
+                    const resp = await fetch(`${API_URL}?sheet=${sheet}`);
+                    if (!resp.ok) throw new Error(`Error HTTP: ${resp.status}`);
+                    return await resp.json();
+                };
+
+                // Cargar eventos
+                const eventosData = await cargarHoja('eventos');
+                eventosData.forEach(e => {
+                    eventos[e.id] = { nombre: e.nombre, ingresos: [], gastos: [] };
+                });
+
+                // Cargar ingresos
+                const ingresosData = await cargarHoja('ingresos');
+                ingresosData.forEach(i => {
+                    (eventos[i.id_evento] || eventos.general).ingresos.push({
+                        nombre: i.nombre,
+                        cantidad: parseFloat(i.cantidad),
+                        concepto: i.concepto,
+                        fecha: i.fecha
+                    });
+                });
+
+                // Cargar gastos
+                const gastosData = await cargarHoja('gastos');
+                gastosData.forEach(g => {
+                    (eventos[g.id_evento] || eventos.general).gastos.push({
+                        nombre: g.nombre,
+                        cantidad: parseFloat(g.cantidad),
+                        concepto: g.concepto,
+                        fecha: g.fecha
+                    });
+                });
+
+                reconstruirInterfaz();
+                actualizarTablaGeneral();
+                actualizarEstado("Datos cargados correctamente", false);
+            } catch (error) {
+                actualizarEstado("Error al cargar: " + error.message, true);
+                console.error("Error:", error);
+            }
+        }
+
+        function reconstruirInterfaz() {
+            const tabs = document.getElementById('eventosTabs');
+            const contents = document.getElementById('eventosContents');
+            tabs.innerHTML = '<div class="tab active" data-evento="general">General</div>';
+            contents.innerHTML = document.getElementById('content-general').outerHTML;
+
+            Object.keys(eventos).filter(k => k !== 'general').forEach(id => {
+                const tab = document.createElement('div');
+                tab.className = 'tab';
+                tab.textContent = eventos[id].nombre;
+                tab.setAttribute('data-evento', id);
+                tab.addEventListener('click', cambiarTab);
+                tabs.appendChild(tab);
+
+                const content = document.createElement('div');
+                content.className = 'tab-content';
+                content.id = `content-${id}`;
+                content.innerHTML = crearContenidoEvento(eventos[id].nombre, id);
+                contents.appendChild(content);
+                configurarEventoContent(id);
+            });
+
+            Object.keys(eventos).filter(k => k !== 'general').forEach(id => {
+                actualizarBalance(id);
+            });
+        }
+
+        function crearContenidoEvento(nombre, idEvento) {
+            return `
+                <h3>${nombre}</h3>
+                <div class="export-container">
+                    <button id="exportarExcel-${idEvento}" class="export-btn">Exportar a Excel</button>
+                    <button id="exportarPDF-${idEvento}" class="export-btn">Exportar a PDF</button>
+                </div>
+                <div class="container">
+                    <h4>Añadir Movimiento al Evento</h4>
+                    <div class="form-group">
+                        <label for="tipoMovimiento-${idEvento}">Tipo:</label>
+                        <select id="tipoMovimiento-${idEvento}">
+                            <option value="ingreso">Ingreso</option>
+                            <option value="gasto">Gasto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="nombrePersona-${idEvento}">Nombre:</label>
+                        <input type="text" id="nombrePersona-${idEvento}" placeholder="Nombre">
+                    </div>
+                    <div class="form-group">
+                        <label for="cantidad-${idEvento}">Cantidad (€):</label>
+                        <input type="number" step="0.01" id="cantidad-${idEvento}" placeholder="0.00">
+                    </div>
+                    <div class="form-group">
+                        <label for="concepto-${idEvento}">Concepto:</label>
+                        <input type="text" id="concepto-${idEvento}" placeholder="Descripción">
+                    </div>
+                    <button id="agregarMovimiento-${idEvento}">Añadir al Evento</button>
+                </div>
+                <div class="container">
+                    <h3>Ingresos</h3>
+                    <table id="tablaIngresos-${idEvento}">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Cantidad (€)</th>
+                                <th>Concepto</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaIngresos-${idEvento}">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="container">
+                    <h3>Gastos</h3>
+                    <table id="tablaGastos-${idEvento}">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Cantidad (€)</th>
+                                <th>Concepto</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaGastos-${idEvento}">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="container">
+                    <h3>Balance Presupuestario</h3>
+                    <div id="balance-${idEvento}" class="balance zero">Balance: 0.00 €</div>
+                </div>
+            `;
+        }
+
+        function configurarEventoContent(idEvento) {
+            document.getElementById(`agregarMovimiento-${idEvento}`).addEventListener('click', () => {
+                agregarMovimiento(idEvento);
+            });
+            
+            document.getElementById(`exportarExcel-${idEvento}`).addEventListener('click', () => {
+                exportarEventoAExcel(idEvento);
+            });
+            
+            document.getElementById(`exportarPDF-${idEvento}`).addEventListener('click', () => {
+                exportarEventoAPDF(idEvento);
+            });
+        }
+
+        function cambiarTab(e) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            e.target.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(`content-${e.target.getAttribute('data-evento')}`).classList.add('active');
+        }
+
+        function agregarMovimiento(idEvento) {
+            const tipo = idEvento === 'general' 
+                ? document.getElementById('tipoMovimiento').value 
+                : document.getElementById(`tipoMovimiento-${idEvento}`).value;
+            const nombre = idEvento === 'general' 
+                ? document.getElementById('nombrePersona').value.trim()
+                : document.getElementById(`nombrePersona-${idEvento}`).value.trim();
+            const cant = idEvento === 'general' 
+                ? parseFloat(document.getElementById('cantidad').value)
+                : parseFloat(document.getElementById(`cantidad-${idEvento}`).value);
+            const conc = idEvento === 'general' 
+                ? document.getElementById('concepto').value.trim()
+                : document.getElementById(`concepto-${idEvento}`).value.trim();
+
+            if (!nombre || isNaN(cant) || !conc) {
+                alert('Completa todos los campos correctamente');
+                return;
+            }
+
+            const movimiento = {
+                id_evento: idEvento,
+                nombre: nombre,
+                cantidad: cant,
+                concepto: conc,
+                fecha: new Date().toLocaleDateString('es-ES')
+            };
+
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sheet: tipo === 'ingreso' ? 'ingresos' : 'gastos',
+                    row: Object.values(movimiento)
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (tipo === 'ingreso') {
+                        (eventos[idEvento] || eventos.general).ingresos.push(movimiento);
+                    } else {
+                        (eventos[idEvento] || eventos.general).gastos.push(movimiento);
+                    }
+                    
+                    if (idEvento === 'general') {
+                        actualizarTablaGeneral();
+                    } else {
+                        actualizarTablaEvento(idEvento);
+                        actualizarBalance(idEvento);
+                    }
+                    
+                    // Limpiar formulario
+                    if (idEvento === 'general') {
+                        document.getElementById('nombrePersona').value = '';
+                        document.getElementById('cantidad').value = '';
+                        document.getElementById('concepto').value = '';
+                    } else {
+                        document.getElementById(`nombrePersona-${idEvento}`).value = '';
+                        document.getElementById(`cantidad-${idEvento}`).value = '';
+                        document.getElementById(`concepto-${idEvento}`).value = '';
+                    }
+                } else {
+                    alert("Error al guardar: " + JSON.stringify(data));
+                }
+            })
+            .catch(err => {
+                alert("Error de conexión: " + err.message);
+                console.error(err);
+            });
+        }
+
+        function actualizarTablaGeneral() {
+            listaGeneral.innerHTML = '';
+            [...eventos.general.ingresos.map(i => ({...i, tipo: 'Ingreso'})), 
+              ...eventos.general.gastos.map(g => ({...g, tipo: 'Gasto'}))]
+            .forEach(mov => {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td>${mov.tipo}</td>
+                    <td>${mov.nombre}</td>
+                    <td>${mov.cantidad.toFixed(2)}</td>
+                    <td>${mov.concepto}</td>
+                    <td>${mov.fecha}</td>
+                `;
+                listaGeneral.appendChild(fila);
+            });
+        }
+
+        function actualizarTablaEvento(idEvento) {
+            const listaIngresos = document.getElementById(`listaIngresos-${idEvento}`);
+            const listaGastos = document.getElementById(`listaGastos-${idEvento}`);
+            
+            listaIngresos.innerHTML = '';
+            (eventos[idEvento]?.ingresos || []).forEach(i => {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td>${i.nombre}</td>
+                    <td>${i.cantidad.toFixed(2)}</td>
+                    <td>${i.concepto}</td>
+                    <td>${i.fecha}</td>
+                `;
+                listaIngresos.appendChild(fila);
+            });
+
+            listaGastos.innerHTML = '';
+            (eventos[idEvento]?.gastos || []).forEach(g => {
+                const fila = document.createElement('tr');
+                fila.innerHTML = `
+                    <td>${g.nombre}</td>
+                    <td>${g.cantidad.toFixed(2)}</td>
+                    <td>${g.concepto}</td>
+                    <td>${g.fecha}</td>
+                `;
+                listaGastos.appendChild(fila);
+            });
+        }
+
+        function actualizarBalance(idEvento) {
+            const balanceElement = document.getElementById(`balance-${idEvento}`);
+            const ev = eventos[idEvento];
+            if (!ev) return;
+            
+            const totalIngresos = ev.ingresos.reduce((a,b) => a+b.cantidad, 0);
+            const totalGastos = ev.gastos.reduce((a,b) => a+b.cantidad, 0);
+            const balance = totalIngresos - totalGastos;
+            
+            balanceElement.textContent = `Ingresos: ${totalIngresos.toFixed(2)} € | Gastos: ${totalGastos.toFixed(2)} € | Balance: ${balance.toFixed(2)} €`;
+            balanceElement.className = 'balance ' + (balance > 0 ? 'positive' : balance < 0 ? 'negative' : 'zero');
+        }
+
+        function exportarEventoAExcel(idEvento) {
+            const { utils, writeFile } = XLSX;
+            const wb = utils.book_new();
+            
+            const ingresosData = [['Nombre','Cantidad','Concepto','Fecha']];
+            (eventos[idEvento]?.ingresos || []).forEach(i => {
+                ingresosData.push([i.nombre, i.cantidad, i.concepto, i.fecha]);
+            });
+            utils.book_append_sheet(wb, utils.aoa_to_sheet(ingresosData), "Ingresos");
+            
+            const gastosData = [['Nombre','Cantidad','Concepto','Fecha']];
+            (eventos[idEvento]?.gastos || []).forEach(g => {
+                gastosData.push([g.nombre, g.cantidad, g.concepto, g.fecha]);
+            });
+            utils.book_append_sheet(wb, utils.aoa_to_sheet(gastosData), "Gastos");
+            
+            writeFile(wb, `${eventos[idEvento].nombre}.xlsx`);
+        }
+
+        function exportarEventoAPDF(idEvento) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text(eventos[idEvento].nombre, 14, 20);
+            
+            const ingresosData = (eventos[idEvento]?.ingresos || []).map(i => [
+                i.nombre, i.cantidad.toFixed(2), i.concepto, i.fecha
+            ]);
+            if (ingresosData.length > 0) {
+                doc.autoTable({
+                    head: [['Nombre','Cantidad (€)','Concepto','Fecha']],
+                    body: ingresosData,
+                    startY: 30
+                });
+            }
+            
+            const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY + 10 : 40;
+            const gastosData = (eventos[idEvento]?.gastos || []).map(g => [
+                g.nombre, g.cantidad.toFixed(2), g.concepto, g.fecha
+            ]);
+            if (gastosData.length > 0) {
+                doc.autoTable({
+                    head: [['Nombre','Cantidad (€)','Concepto','Fecha']],
+                    body: gastosData,
+                    startY: finalY
+                });
+            }
+            
+            doc.save(`${eventos[idEvento].nombre}.pdf`);
+        }
+
+        document.getElementById('crearEvento').addEventListener('click', () => {
+            const nombre = document.getElementById('nombreEvento').value.trim();
+            if (!nombre) return alert('Nombre requerido');
+            
+            const idEvento = nombre.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (eventos[idEvento]) return alert('Ya existe un evento con ese nombre');
+            
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sheet: 'eventos',
+                    row: [idEvento, nombre, new Date().toLocaleDateString('es-ES')]
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    eventos[idEvento] = { nombre, ingresos: [], gastos: [] };
+                    document.getElementById('nombreEvento').value = '';
+                    reconstruirInterfaz();
+                } else {
+                    alert("Error al crear evento: " + JSON.stringify(data));
+                }
+            })
+            .catch(err => {
+                alert("Error: " + err.message);
+            });
+        });
+
+        document.getElementById('exportarExcelGeneral').addEventListener('click', () => {
+            const { utils, writeFile } = XLSX;
+            const wb = utils.book_new();
+            const data = [['TIPO','NOMBRE','CANTIDAD','CONCEPTO','FECHA']];
+            [...eventos.general.ingresos.map(i=>['INGRESO',i.nombre,i.cantidad,i.concepto,i.fecha]),
+              ...eventos.general.gastos.map(g=>['GASTO',g.nombre,g.cantidad,g.concepto,g.fecha])]
+            .forEach(row => data.push(row));
+            utils.book_append_sheet(wb, utils.aoa_to_sheet(data), "General");
+            writeFile(wb, `General_${new Date().toISOString().split('T')[0]}.xlsx`);
+        });
+
+        document.getElementById('exportarPDFGeneral').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.text("Movimientos Generales", 14, 20);
+            const data = [['TIPO','NOMBRE','CANTIDAD','CONCEPTO','FECHA']];
+            [...eventos.general.ingresos.map(i=>['INGRESO',i.nombre,i.cantidad,i.concepto,i.fecha]),
+              ...eventos.general.gastos.map(g=>['GASTO',g.nombre,g.cantidad,g.concepto,g.fecha])]
+            .forEach(row => data.push(row));
+            doc.autoTable({ head: [data[0]], body: data.slice(1), startY: 30 });
+            doc.save(`General_${new Date().toISOString().split('T')[0]}.pdf`);
+        });
+
+        document.querySelectorAll('.tab').forEach(tab
